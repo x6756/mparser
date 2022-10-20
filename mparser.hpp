@@ -12,17 +12,17 @@ extern const double DblNiN;
 
 typedef double (*OneArgFunc) ( double arg );
 typedef char* (*MultiArgFunc) ( int paramcnt, double *args,
-                                MStrMap *strparams, double *result );
+                                m_str_map *strparams, double *result );
 typedef int (*PrmSrchFunc) ( const char *str, int len, double *value,
                              void *param );
 
-class MParser {
+class mparser {
 public:
-    MParser( char *MoreLetters=nullptr );
+    mparser( char *MoreLetters=nullptr );
     char* parse(const char *formula, double *result);
-    ~MParser();
-    MStrMap parameters;
-    MStrMap ExtFunctions;
+    ~mparser();
+    m_str_map parameters;
+    m_str_map ExtFunctions;
     PrmSrchFunc MoreParams;
     void  *ParamFuncParam;
 private:
@@ -39,34 +39,34 @@ private:
         OP_LOGIC, OP_LOGIC_SEP, OP_CBR, OP_COMMA, // Logical
         OP_FORMULAEND, // For script
         OP_FUNC_ONEARG, OP_FUNC_MULTIARG // Special
-    } OperType_t;
-    static const char OpPriorities[OP_FUNC_MULTIARG+1];
+    } oper_type_t;
+    static const char op_priorities[OP_FUNC_MULTIARG+1];
     typedef struct {
-        OperType_t OperType;
+        oper_type_t OperType;
         void      *Func;
         char       PrevValTop;
-        MStrMap   *StrParams;
+        m_str_map   *StrParams;
     } Operation;
-    static const Operation BrOp;
-    static const Operation NegOp;
+    static const Operation br_op;
+    static const Operation neg_op;
     Operation OpStack[MAX_STACK_SIZE];
     double  ValStack[MAX_STACK_SIZE];
     int OpTop, ValTop;
     int ObrDist;
-    static int refCounter;
-    MLexer Lexer;
+    static int ref_counter;
+    mlexer lexer;
     int script;
-    MStrMap *VarParams;
-    static MStrMap IntFunctions;
-    static m_math_sym_table MathSymTable;
+    m_str_map *VarParams;
+    static m_str_map int_functions;
+    static m_math_sym_table math_sym_table;
     static char errbuf[256];
-    static hqCharType MathCharTypeTable[256];
+    static hq_char_type_t math_char_type_table[256];
     static int initializations_performed;
-    char* ParseScript(double *result);
-    char* ParseFormula(double *result);
-    char* PrepareFormula();
-    char* Calc();
-    char* CalcToObr();
+    char* parse_script(double *result);
+    char* parse_formula(double *result);
+    char* prepare_formula();
+    char* calc();
+    char* calc_to_obr();
 };
 
 #endif //_MPARSER_H_

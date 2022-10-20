@@ -1,5 +1,5 @@
-#if !defined(_SYMTABLE_H_INCLUDED_)
-#define _SYMTABLE_H_INCLUDED_
+#ifndef _SYMTABLE_H_
+#define _SYMTABLE_H_
 
 class m_sym_table {
 public:

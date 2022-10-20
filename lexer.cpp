@@ -7,13 +7,13 @@
 #include <cstdio>
 #endif
 
-void InitCharTypeTable( hqCharType *CharTypeTable, int CharTypes )
+void init_char_type_table( hq_char_type_t *CharTypeTable, int CharTypes )
 {
 #ifdef MDEBUG
     printf( "CharTypeTable = 0x%X; CharTypes = %d\n", (unsigned)CharTypeTable,
             CharTypes );
 #endif
-    memset(CharTypeTable, CH_UNKNOWN, 256 * sizeof(hqCharType));
+    memset(CharTypeTable, CH_UNKNOWN, 256 * sizeof(hq_char_type_t));
 
     CharTypeTable[0] = CH_FINAL;
 
@@ -48,7 +48,7 @@ void InitCharTypeTable( hqCharType *CharTypeTable, int CharTypes )
 #define CHARTYPEPP CharTypeTable[ (uchar) *++(SS) ]
 #define CHARTYPE CharTypeTable[ (uchar) *SS ]
 
-int MLexer::SetParseString(const char *str )
+int mlexer::set_parse_string(const char *str )
 {
     PrevTokenType = TOK_NONE;
     if ( !str || !*str ) {
@@ -66,9 +66,9 @@ int MLexer::SetParseString(const char *str )
     return 1;
 }
 
-hqTokenType MLexer::GetNextToken()
+hq_token_type_t mlexer::get_next_token()
 {
-    hqTokenType result = TOK_ERROR;
+    hq_token_type_t result = TOK_ERROR;
 
 next_token:
 
@@ -169,7 +169,7 @@ next_token:
     return PrevTokenType = result;
 }
 
-char* MLexer::GetCurrentPos()
+char* mlexer::get_current_pos()
 {
     return SS;
 }

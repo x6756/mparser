@@ -1,35 +1,27 @@
+#define  _USE_MATH_DEFINES
 #include <cmath>
 #include <climits>
 #include <cstdio>
 #include <cstring>
 #include "mparser.hpp"
 
-#ifndef M_E
-# define M_E        2.7182818284590452354
-#endif
-#ifndef M_PI
-# define M_PI       3.14159265358979323846
-#endif
+static const double DblErR = -1.68736462823243E308;
+static const double DblNiN = -1.68376462823243E308;
 
-const double DblErR = -1.68736462823243E308;
-const double DblNiN = -1.68376462823243E308;
+static char eBrackets [] = "Brackets don't match";
+static char eSyntax   [] = "Syntax error";
+static char eInternal [] = "Internal error";
+static char eExtraOp  [] = "Extra operation";
+static char eInfinity [] = "Infinity somewhere";
+static char eUnknFunc [] = "%s - Unknown function/variable";
+static char eLogicErr [] = "Logical expression error";
+static char eUnexpEnd [] = "Unexpected end of script";
+static char eExpVarRet[] = "Variable name or return expected";
+static char eExpAssign[] = "Assignment expected";
+static char eValSizErr[] = "Value too big for operation";
+static char eInvPrmCnt[] = "Invalid parameters count for function call";
 
-//Error messages
-
-static char eBrackets [] = "#Brackets not match!";
-static char eSyntax   [] = "#Syntax error!";
-static char eInternal [] = "#Internal error!";
-static char eExtraOp  [] = "#Extra operation!";
-static char eInfinity [] = "#Infinity somewhere!";
-static char eUnknFunc [] = "# %s - Unknown function/variable!";
-static char eLogicErr [] = "#Logical expression error!";
-static char eUnexpEnd [] = "#Unexpected end of script!";
-static char eExpVarRet[] = "#Variable name or return expected!";
-static char eExpAssign[] = "#Assignment expected!";
-static char eValSizErr[] = "#Value too big for operation!";
-static char eInvPrmCnt[] = "#Invalid parameters count for function call!";
-
-static char StdSymbols[] = "+-/*^~()<>%$,?:=&|;";
+static char std_symbols[] = "+-/*^~()<>%$,?:=&|;";
 
 static char func_names[] =
     "ATAN\000COS\000SIN\000TAN\000ABS\000"
@@ -37,7 +29,7 @@ static char func_names[] =
     "TRUNC\000FLOOR\000CEIL\000ROUND\000ASIN\000"
     "ACOS\000SGN\000NEG\000E\000PI\000";
 
-/* Indexes of some functions in func_names[] array */
+//Indexes of some functions in func_names[] array
 #define FUNC_ROUND  13
 #define FUNC_E      18
 #define FUNC_PI     19
@@ -46,7 +38,7 @@ static double _neg_(const double);
 static double _frac_(const double);
 static double _trunc_(double);
 static double _sgn_(double);
-static char* _round_( int paramcnt, double *args, MStrMap *strparams, double *result );
+static char* _round_( int paramcnt, double *args, m_str_map *strparams, double *result );
 
 typedef double (*dfd)(double);
 static dfd func_addresses[]= {
@@ -56,69 +48,64 @@ static dfd func_addresses[]= {
     &acos, &_sgn_, &_neg_, nullptr, nullptr
 };
 
-inline void TypeTableAddChars( hqCharType *CharTypeTable, char *Symbols,
-                               hqCharType CharType ) {
+inline void type_table_add_chars( hq_char_type_t *CharTypeTable, char *Symbols,
+                               hq_char_type_t CharType ) {
     while (*Symbols) {
         CharTypeTable[ (uchar) *Symbols++] = CharType;
     }
 }
 
-//static members
-
-const char MParser::OpPriorities[MParser::OP_FUNC_MULTIARG+1] = {
+const char mparser::op_priorities[mparser::OP_FUNC_MULTIARG+1] = {
     5, 5, 5,    2, 2, 2, 2, 2,    -1, -1,   0,
     3, 3,    4, 4, 4, 4,
     5, 5, 5, 5,    2, 2, 2,   1, 2, 0, 2,
     -1, 6, 6
 };
 
-MStrMap MParser::IntFunctions;
+m_str_map mparser::int_functions;
 
-char MParser::errbuf[256];
+char mparser::errbuf[256];
 
-const MParser::Operation MParser::BrOp = {OP_OBR};
+const mparser::Operation mparser::br_op = {OP_OBR};
 
-const MParser::Operation MParser::NegOp = { OP_FUNC_ONEARG, (void*)&_neg_, 0, nullptr };
+const mparser::Operation mparser::neg_op = { OP_FUNC_ONEARG, (void*)&_neg_, 0, nullptr };
 
-int MParser::initializations_performed = 0;
+int mparser::initializations_performed = 0;
 
-hqCharType MParser::MathCharTypeTable[256];
+hq_char_type_t mparser::math_char_type_table[256];
 
-int MParser::refCounter = 0;
+int mparser::ref_counter = 0;
 
-m_math_sym_table MParser::MathSymTable;
+m_math_sym_table mparser::math_sym_table;
 
 
-MParser::MParser( char *MoreLetters):ExtFunctions(sizeof(void*)) {
-    if (refCounter++ == 0) {
+mparser::mparser( char *MoreLetters):ExtFunctions(sizeof(void*)) {
+    if (ref_counter++ == 0) {
         // init character tables
-        InitCharTypeTable( MathCharTypeTable,CH_LETTER | CH_DIGIT | CH_SEPARAT | CH_QUOTE );
-        TypeTableAddChars( MathCharTypeTable, StdSymbols, CH_SYMBOL );
+        init_char_type_table( math_char_type_table,CH_LETTER | CH_DIGIT | CH_SEPARAT | CH_QUOTE );
+        type_table_add_chars( math_char_type_table, std_symbols, CH_SYMBOL );
         if (MoreLetters) {
-            TypeTableAddChars( MathCharTypeTable, MoreLetters, CH_LETTER );
+            type_table_add_chars( math_char_type_table, MoreLetters, CH_LETTER );
         }
         // init function maps
-        IntFunctions.CreateFromChain( sizeof(void*),
-                                      (char*)func_names,
-                                      func_addresses );
+        int_functions.create_from_chain( sizeof(void*), (char*)func_names, func_addresses );
         initializations_performed = 1;
-
     }
     ParamFuncParam = nullptr;
     MoreParams = nullptr;
     VarParams = nullptr;
-    Lexer.NoIntegers = 1;
-    Lexer.SymTable = &MathSymTable;
-    Lexer.CharTypeTable = MathCharTypeTable;
-    Lexer.cssn = 8;
-    Lexer.ComEnd = (char*) "*/";
+    lexer.NoIntegers = 1;
+    lexer.SymTable = &math_sym_table;
+    lexer.CharTypeTable = math_char_type_table;
+    lexer.cssn = 8;
+    lexer.ComEnd = (char*) "*/";
 }
 
-MParser::~MParser() {}
+mparser::~mparser() {}
 
-char* MParser::PrepareFormula() {
+char* mparser::prepare_formula() {
     int BrCnt = 0;
-    char *SS = Lexer.GetCurrentPos();
+    char *SS = lexer.get_current_pos();
 
     // Brackets Matching
     while ( (!script && *SS) || (script && *SS != ';') ) {
@@ -142,65 +129,65 @@ brkerr:
     return nullptr;
 }
 
-char* MParser::parse(const char *formula, double *result) {
+char* mparser::parse(const char *formula, double *result) {
     if (!formula || !*formula) {
         *result = 0.0;
         return nullptr;
     }
 
-    script = *formula == '#' && *(formula+1) == '!' && MathCharTypeTable[ (uchar)*(formula+2) ] == CH_SEPARAT;
+    script = *formula == '#' && *(formula+1) == '!' && math_char_type_table[ (uchar)*(formula+2) ] == CH_SEPARAT;
 
     if (script) {
         formula += 3;
     }
 
-    Lexer.SetParseString(formula);
+    lexer.set_parse_string(formula);
 
-    return script ? ParseScript(result) : ParseFormula(result);
+    return script ? parse_script(result) : parse_formula(result);
 }
 
-char* MParser::ParseFormula( double *result ) {
+char* mparser::parse_formula( double *result ) {
     char *ErrorMsg;
 
-    if ((ErrorMsg = PrepareFormula()) != nullptr ) {
+    if ((ErrorMsg = prepare_formula()) != nullptr ) {
         return ErrorMsg;
     }
 
-    hqTokenType ToTi = Lexer.GetNextToken();
+    hq_token_type_t ToTi = lexer.get_next_token();
     for (;;) {
         --ObrDist;
         switch (ToTi) {
         case TOK_ERROR:
             return eSyntax;
         case TOK_FINAL:
-formulaend:
-            if ((ErrorMsg = CalcToObr()) != nullptr) {
+formula_end:
+            if ((ErrorMsg = calc_to_obr()) != nullptr) {
                 return ErrorMsg;
             }
             goto getout;
         case TOK_FLOAT:
-            ValStack[++ValTop] = Lexer.ExtValue;
+            ValStack[++ValTop] = lexer.ExtValue;
             break;
         case TOK_SYMBOL:
-            switch ( Lexer.IntValue ) {
+            switch ( lexer.IntValue ) {
             case OP_OBR:    // (
-                OpStack[++OpTop] = BrOp;
+                OpStack[++OpTop] = br_op;
                 ObrDist = 2;
                 break;
             case OP_CBR:    // )
-                if ((ErrorMsg = CalcToObr()) != nullptr) {
+                if ((ErrorMsg = calc_to_obr()) != nullptr) {
                     return ErrorMsg;
                 }
                 break;
             case OP_COMMA: {    // ,
-                if ( (ErrorMsg = CalcToObr()) != nullptr ) {
+                if ( (ErrorMsg = calc_to_obr()) != nullptr ) {
                     return ErrorMsg;
                 }
 
                 Operation *pOp;
 
                 if ((pOp = &OpStack[OpTop])->OperType == OP_FUNC_MULTIARG) {
-                    OpStack[++OpTop] = BrOp;
+                    OpStack[++OpTop] = br_op;
                     ObrDist = 2;
                 } else {
                     return eSyntax;
@@ -209,11 +196,11 @@ formulaend:
             }
             default: {
                 Operation Op;
-                Op.OperType = (OperType_t) Lexer.IntValue;
+                Op.OperType = (oper_type_t) lexer.IntValue;
                 switch (Op.OperType) {
                     case OP_FORMULAEND:
                         if (script) {
-                            goto formulaend;
+                            goto formula_end;
                         }
                         else {
                             return eSyntax;
@@ -225,7 +212,7 @@ formulaend:
                     break;
                     case OP_SUB:
                         if (ObrDist >= 1) {
-                            OpStack[++OpTop] = NegOp;
+                            OpStack[++OpTop] = neg_op;
                             goto next_tok;
                         }
                     break;
@@ -236,8 +223,8 @@ formulaend:
                     default:
                     break;
                 }
-                while(OpPriorities[ Op.OperType ] <= OpPriorities[ OpStack[OpTop].OperType ]) {
-                    if((ErrorMsg = Calc()) != nullptr) {
+                while(op_priorities[ Op.OperType ] <= op_priorities[ OpStack[OpTop].OperType ]) {
+                    if((ErrorMsg = calc()) != nullptr) {
                         return ErrorMsg;
                     }
                 }
@@ -250,14 +237,14 @@ formulaend:
             Operation Op;
             double *value, dblval;
             void **func;
-            long long funcnum, namelen = Lexer.NameLen;
+            long long funcnum, namelen = lexer.NameLen;
 
-            char *SS = Lexer.Name;
+            char *SS = lexer.Name;
             for(int i = namelen; i>0; --i) {
                 *SS++ = toupper((int)*SS);
             }
 
-            funcnum = IntFunctions.IndexOf(Lexer.Name,Lexer.NameLen,(void**) &func);
+            funcnum = int_functions.index_of(lexer.Name,lexer.NameLen,(void**) &func);
             if (funcnum >= 0) {
                 Op.Func = *func;
                 switch (funcnum) {
@@ -277,13 +264,13 @@ formulaend:
                     Op.OperType = OP_FUNC_ONEARG;
                     OpStack[++OpTop] = Op;
                 }
-            } else if (parameters.IndexOf(Lexer.Name,Lexer.NameLen,(void**) &value )>= 0) {
+            } else if (parameters.index_of(lexer.Name,lexer.NameLen,(void**) &value )>= 0) {
                 if (*value==DblErR) {
                     return eInternal;
                 } else {
                     ValStack[++ValTop] = *value;
                 }
-            } else if (ExtFunctions.IndexOf(Lexer.Name,Lexer.NameLen,(void**) &func ) >= 0) {
+            } else if (ExtFunctions.index_of(lexer.Name,lexer.NameLen,(void**) &func ) >= 0) {
                 Op.Func = *func;
                 Op.OperType = OP_FUNC_MULTIARG;
                 Op.PrevValTop = ValTop;
@@ -291,7 +278,7 @@ formulaend:
                 OpStack[++OpTop] = Op;
             } else if (VarParams
                        &&
-                       VarParams->IndexOf(Lexer.Name,Lexer.NameLen,(void**) &value )    >= 0
+                       VarParams->index_of(lexer.Name,lexer.NameLen,(void**) &value )    >= 0
                       ) {
                 if (*value==DblErR) {
                     return eInternal;
@@ -300,16 +287,16 @@ formulaend:
                 }
             } else if (MoreParams
                        &&
-                       (*MoreParams)( Lexer.Name,
-                                      Lexer.NameLen,
+                       (*MoreParams)( lexer.Name,
+                                      lexer.NameLen,
                                       &dblval,
                                       ParamFuncParam )
                       ) {
                 ValStack[++ValTop] = dblval;
             } else {
                 char buf[256];
-                strncpy( buf, Lexer.Name, Lexer.NameLen );
-                buf[Lexer.NameLen] = '\0';
+                strncpy( buf, lexer.Name, lexer.NameLen );
+                buf[lexer.NameLen] = '\0';
                 sprintf( errbuf, eUnknFunc, buf );
                 return errbuf;
             }
@@ -325,9 +312,9 @@ formulaend:
             if ( (pOp = &OpStack[OpTop-1])->OperType
                     == OP_FUNC_MULTIARG ) {
                 if (!pOp->StrParams) {
-                    pOp->StrParams = new MStrMap(0);
+                    pOp->StrParams = new m_str_map(0);
                 }
-                pOp->StrParams->add_str(Lexer.Name,Lexer.NameLen, nullptr );
+                pOp->StrParams->add_str(lexer.Name,lexer.NameLen, nullptr );
                 ValStack[++ValTop] = DblNiN;
             } else {
                 return eSyntax;
@@ -338,7 +325,7 @@ formulaend:
             return eSyntax;
         }
 next_tok:
-        ToTi = Lexer.GetNextToken();
+        ToTi = lexer.get_next_token();
     } // forever
 
 getout:
@@ -350,15 +337,15 @@ getout:
     return nullptr;
 }
 
-char* MParser::ParseScript(double *result) {
+char* mparser::parse_script(double *result) {
     char *ErrorMsg = nullptr;
     int expectvar = 1, was_return = 0;
     char *varname = nullptr;
     long long varnamelen = 0;
 
-    VarParams = new MStrMap();
+    VarParams = new m_str_map();
 
-    hqTokenType ToTi = Lexer.GetNextToken();
+    hq_token_type_t ToTi = lexer.get_next_token();
     for (;;) {
         switch (ToTi) {
         case TOK_FINAL:
@@ -369,36 +356,36 @@ char* MParser::ParseScript(double *result) {
                 ErrorMsg = eExpVarRet;
                 goto getout;
             } else {
-                char *SS = Lexer.Name;
+                char *SS = lexer.Name;
 
-                varnamelen = Lexer.NameLen;
+                varnamelen = lexer.NameLen;
 
                 for(int i = varnamelen; i>0; --i){
                     *SS++ = toupper((int)(uchar)*SS);
                 }
             }
-            varname = Lexer.Name;
+            varname = lexer.Name;
 
             was_return = strncmp(varname, "RETURN", varnamelen) == 0;
             if (was_return) {
-                ErrorMsg = ParseFormula(result);
+                ErrorMsg = parse_formula(result);
                 goto getout;
             }
             expectvar = 0;
             break;
         }
         case TOK_SYMBOL: {
-            if (Lexer.IntValue != OP_ASSIGN || expectvar) {
+            if (lexer.IntValue != OP_ASSIGN || expectvar) {
                 ErrorMsg = eExpAssign;
                 goto getout;
             }
-            ErrorMsg = ParseFormula(result);
+            ErrorMsg = parse_formula(result);
             if (ErrorMsg) {
                 goto getout;
             }
 
             double *value;
-            if (VarParams->IndexOf(varname, varnamelen,(void**) &value ) >= 0 ) {
+            if (VarParams->index_of(varname, varnamelen,(void**) &value ) >= 0 ) {
                 *value = *result;
             }
             else {
@@ -411,7 +398,7 @@ char* MParser::ParseScript(double *result) {
             ErrorMsg = eSyntax;
             goto getout;
         }
-        ToTi = Lexer.GetNextToken();
+        ToTi = lexer.get_next_token();
     }
 
 getout:
@@ -419,7 +406,7 @@ getout:
     return ErrorMsg;
 }
 
-char* MParser::Calc()
+char* mparser::calc()
 {
     double Res;
     Operation Op = OpStack[OpTop--];
@@ -594,10 +581,10 @@ char* MParser::Calc()
     return nullptr;
 }
 
-char* MParser::CalcToObr() {
+char* mparser::calc_to_obr() {
     while ( OpStack[OpTop].OperType != OP_OBR ) {
         char *ErrorMsg;
-        if ( (ErrorMsg = Calc()) != nullptr ) {
+        if ( (ErrorMsg = calc()) != nullptr ) {
             return ErrorMsg;
         }
     }
@@ -623,7 +610,7 @@ static double _neg_(const double x){
 }
 
 /* "Advanced" round function; second argument - sharpness */
-static char* _round_(int paramcnt, double *args, [[maybe_unused]] MStrMap *strparams, double *result ) {
+static char* _round_(int paramcnt, double *args, [[maybe_unused]] m_str_map *strparams, double *result ) {
     int sharpness;
     double x, coef;
 

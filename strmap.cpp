@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include "strmap.hpp"
 
-MStrMap::MStrMap(int extrabytes) {
+m_str_map::m_str_map(int extrabytes) {
     FList = nullptr;
     FCount = 0;
     FCapacity = 0;
@@ -11,7 +11,7 @@ MStrMap::MStrMap(int extrabytes) {
     FRecordLen = sizeof(char*) + sizeof(int) + extrabytes;
 }
 
-void MStrMap::FillFromChain(char *strchain, void *data) {
+void m_str_map::fill_from_chain(char *strchain, void *data) {
     while(*strchain) {
         long long len = strlen(strchain);
         add_str(strchain, len, data);
@@ -20,47 +20,33 @@ void MStrMap::FillFromChain(char *strchain, void *data) {
     }
 }
 
-void MStrMap::CreateFromChain(int extrabytes, char *strchain, void *data) {
+void m_str_map::create_from_chain(int extrabytes, char *strchain, void *data) {
     FExtraLen = extrabytes;
     FRecordLen = sizeof(char*) + sizeof(int) + extrabytes;
-    FillFromChain( strchain, data);
-    ShrinkMem();
+    fill_from_chain( strchain, data);
+    shrink_mem();
 }
 
-MStrMap::~MStrMap() {
-    Clear();
+m_str_map::~m_str_map() {
+    clear();
 }
 
-/*
-void MStrMap::add_string(const std::string &str, void *data) {
-    add_str_to_upper((char*)str.c_str(), str.size(), data);
-}
-
-void MStrMap::add_string(const char *str, void *data) {
-    add_str_to_upper((char*)str, strlen(str), data);
-}
-
-void MStrMap::add_str_to_upper(char *str, int len, void *data){
-
-    add_str(str,len,data);
-}*/
-
-void MStrMap::add_var(const std::string &str, double data) {
+void m_str_map::add_var(const std::string &str, double data) {
     add_var_to_upper((char*)str.c_str(), str.size(), data);
 }
 
-void MStrMap::add_var(const char *str, double data) {
+void m_str_map::add_var(const char *str, double data) {
     add_var_to_upper((char*)str, strlen(str), data);
 }
 
-void MStrMap::add_var_to_upper(char *str, int len, double data){
+void m_str_map::add_var_to_upper(char *str, int len, double data){
     for(size_t i = 0;i <= strlen(str);++i) {
         str[i] = toupper(str[i]);
     }
     add_str(str,len,&data);
 }
 
-void MStrMap::add_str(const char *str, long long len, void *data) {
+void m_str_map::add_str(const char *str, long long len, void *data) {
     char *Rec;
     if(FCount >= FCapacity) {
         int delta = (FCapacity > 64) ? FCapacity / 4 : 16;
@@ -77,15 +63,15 @@ void MStrMap::add_str(const char *str, long long len, void *data) {
     FCount++;
 }
 
-void MStrMap::ShrinkMem() {
+void m_str_map::shrink_mem() {
     set_capacity(FCount);
 }
 
-void MStrMap::Trim(int NewCount) {
+void m_str_map::trim(int NewCount) {
     FCount = NewCount;
 }
 
-void MStrMap::TrimClear(int NewCount) {
+void m_str_map::trim_clear(int NewCount) {
     if(NewCount < FCount) {
         char *Rec = FList + NewCount * FRecordLen;
         for(int i = NewCount; i < FCount; i++) {
@@ -96,7 +82,7 @@ void MStrMap::TrimClear(int NewCount) {
     }
 }
 
-void MStrMap::set_capacity(int new_capacity) {
+void m_str_map::set_capacity(int new_capacity) {
     FCapacity = new_capacity;
     if(FCount >FCapacity) {
         FCount = FCapacity;
@@ -110,11 +96,11 @@ void MStrMap::set_capacity(int new_capacity) {
     FList = tmp;
 }
 
-int MStrMap::IndexOf(char *str, void **data) {
-    return IndexOf( str, strlen(str), data);
+int m_str_map::index_of(char *str, void **data) {
+    return index_of( str, strlen(str), data);
 }
 
-int MStrMap::IndexOf(char *str, int len, void **data) {
+int m_str_map::index_of(char *str, int len, void **data) {
     char *Rec = FList;
     for(int i=0; i<FCount; i++) {
         int recLen = *(int*)(Rec + sizeof(char*));
@@ -128,11 +114,11 @@ int MStrMap::IndexOf(char *str, int len, void **data) {
     return -1;
 }
 
-int MStrMap::Replace(char *str, void *data) {
-    return Replace(str, strlen(str), data);
+int m_str_map::replace(char *str, void *data) {
+    return replace(str, strlen(str), data);
 }
 
-int MStrMap::Replace(char *str, int len, void *data) {
+int m_str_map::replace(char *str, int len, void *data) {
     char *Rec = FList;
     for (int i=0; i<FCount; i++) {
         int recLen = *(int*)(Rec + sizeof(char*));
@@ -146,7 +132,7 @@ int MStrMap::Replace(char *str, int len, void *data) {
     return -1;
 }
 
-char* MStrMap::GetString(int index, int *len, void **data) {
+char* m_str_map::get_string(int index, int *len, void **data) {
     char *Rec = FList + index * FRecordLen;
     *len =  *(int*)(Rec + sizeof(char*));
     if (data!=nullptr && FExtraLen>0) {
@@ -155,8 +141,8 @@ char* MStrMap::GetString(int index, int *len, void **data) {
     return *(char**)Rec;
 }
 
-void MStrMap::Clear() {
-    TrimClear(0);
+void m_str_map::clear() {
+    trim_clear(0);
     if (FList) {
         free(FList);
         FList = nullptr;
