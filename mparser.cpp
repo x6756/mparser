@@ -5,8 +5,12 @@
 #include <cstring>
 #include "mparser.hpp"
 
-static const double DblErR = -1.68736462823243E308;
-static const double DblNiN = -1.68376462823243E308;
+#ifndef DblErR
+    #define DblErR -1.68736462823243E308
+#endif
+#ifndef DblNiN
+    #define DblNiN -1.68376462823243E308
+#endif
 
 static char eBrackets [] = "Brackets don't match";
 static char eSyntax   [] = "Syntax error";
